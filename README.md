@@ -10,6 +10,7 @@ File Companion is a user-friendly desktop application that allows users to manag
 - The search results are displayed in a table with each item containing file details like name, extension, size, location, creation date, and modification date.
 - Added options to select file directory manually with default as the current directory.
 - Double-clicking a file in the search results opens the file with the default application for that file type.
+- **New in 1.2.0.0**: Added support for identifying and highlighting duplicate files in the selected directory.
 
 ## How to Use
 

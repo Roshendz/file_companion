@@ -1,11 +1,13 @@
+import hashlib
 import sys
 import os
 import subprocess
 import platform
 import qdarkstyle
 from PyQt5.QtCore import QDateTime
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLineEdit, QTableWidget, QTableWidgetItem, \
-    QPushButton, QFileDialog, QHBoxLayout, QComboBox, QDateTimeEdit, QStyle, QLabel
+    QPushButton, QFileDialog, QHBoxLayout, QComboBox, QDateTimeEdit, QStyle, QLabel, QMenu, QAction, QCheckBox
 from datetime import datetime
 
 class FileCompanion(QMainWindow):
@@ -63,9 +65,14 @@ class FileCompanion(QMainWindow):
         self.end_date_edit.setToolTip('Select the end date for the date range')
         hlayout.addWidget(self.end_date_edit)
 
+        # Create a checkbox to toggle between all files and duplicate files
+        self.toggle_duplicates = QCheckBox("Show only duplicates")
+        self.toggle_duplicates.stateChanged.connect(self.display_files)
+        layout.addWidget(self.toggle_duplicates)
+
         # Create a table view for search results
-        self.search_results = QTableWidget(0, 6)
-        self.search_results.setHorizontalHeaderLabels(["Name", "Extension", "Size (KB/MB)", "Location", "Creation Date", "Modification Date"])
+        self.search_results = QTableWidget(0, 7)
+        self.search_results.setHorizontalHeaderLabels(["Name", "Extension", "Size (KB/MB)", "Location", "Creation Date", "Modification Date", "Checksum"])
         # Connect the itemDoubleClicked signal to the open_file method
         self.search_results.itemDoubleClicked.connect(self.open_file)
         layout.addWidget(self.search_results)
@@ -87,27 +94,76 @@ class FileCompanion(QMainWindow):
         # Clear the table
         self.search_results.setRowCount(0)
 
-        # Iterate over all files in the selected directory
+        # Calculate checksums for all files in the selected directory
+        checksums = {}
         for file_name in os.listdir(self.directory):
-            row = self.search_results.rowCount()
-            self.search_results.insertRow(row)
-            self.search_results.setItem(row, 0, QTableWidgetItem(file_name))
-            self.search_results.setItem(row, 1, QTableWidgetItem(os.path.splitext(file_name)[1]))
-            file_size = os.path.getsize(os.path.join(self.directory, file_name)) / 1024  # Size in KB
-            if file_size > 1024:  # If size > 1024 KB, convert it to MB
-                file_size = file_size / 1024
-                self.search_results.setItem(row, 2, QTableWidgetItem(f"{file_size:.2f} MB"))
-            else:
-                self.search_results.setItem(row, 2, QTableWidgetItem(f"{file_size:.2f} KB"))
-            self.search_results.setItem(row, 3, QTableWidgetItem(os.path.join(self.directory, file_name)))
-            creation_date = datetime.fromtimestamp(os.path.getctime(os.path.join(self.directory, file_name))).strftime(
-                '%Y-%m-%d %H:%M:%S')
-            self.search_results.setItem(row, 4, QTableWidgetItem(creation_date))
-            modification_date = datetime.fromtimestamp(
-                os.path.getmtime(os.path.join(self.directory, file_name))).strftime('%Y-%m-%d %H:%M:%S')
-            self.search_results.setItem(row, 5, QTableWidgetItem(modification_date))
+            file_path = os.path.join(self.directory, file_name)
+            if os.path.isfile(file_path):  # Check if the path is a file
+                with open(file_path, 'rb') as f:
+                    data = f.read()
+                    checksum = hashlib.md5(data).hexdigest()
+                    checksums[file_path] = checksum
+
+        # Find duplicate files
+        duplicates = {}
+        for file_path, checksum in checksums.items():
+            if checksum not in duplicates:
+                duplicates[checksum] = []
+            duplicates[checksum].append(file_path)
+
+        # Display files in the table
+        for file_paths in duplicates.values():
+            if len(file_paths) > 1 or not self.toggle_duplicates.isChecked():  # This is a set of duplicate files or the checkbox is not checked
+                for file_path in file_paths:
+                    # Add the file to the table
+                    row = self.search_results.rowCount()
+                    self.search_results.insertRow(row)
+                    self.search_results.setItem(row, 0, QTableWidgetItem(os.path.basename(file_path)))
+                    self.search_results.setItem(row, 1, QTableWidgetItem(os.path.splitext(file_path)[1]))
+                    file_size = os.path.getsize(file_path) / 1024  # Size in KB
+                    if file_size > 1024:  # If size > 1024 KB, convert it to MB
+                        file_size = file_size / 1024
+                        self.search_results.setItem(row, 2, QTableWidgetItem(f"{file_size:.2f} MB"))
+                    else:
+                        self.search_results.setItem(row, 2, QTableWidgetItem(f"{file_size:.2f} KB"))
+                    self.search_results.setItem(row, 3, QTableWidgetItem(file_path))
+                    creation_date = datetime.fromtimestamp(os.path.getctime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+                    self.search_results.setItem(row, 4, QTableWidgetItem(creation_date))
+                    modification_date = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+                    self.search_results.setItem(row, 5, QTableWidgetItem(modification_date))
+                    self.search_results.setItem(row, 6, QTableWidgetItem(checksums[file_path]))
+
+                    # Color-code the row if duplicates are being shown
+                    if self.toggle_duplicates.isChecked() and len(file_paths) > 1:
+                        for i in range(7):
+                            self.search_results.item(row, i).setBackground(QColor('red'))
 
         self.file_count_label.setText(f"Total Files: {self.search_results.rowCount()}")
+
+    def contextMenuEvent(self, event):
+        # Create a context menu
+        context_menu = QMenu(self)
+
+        # Add actions to the context menu
+        compare_action = QAction("Compare Files", self)
+        view_details_action = QAction("View Details", self)
+        context_menu.addAction(compare_action)
+        context_menu.addAction(view_details_action)
+
+        # Connect the actions to methods
+        compare_action.triggered.connect(self.compare_files)
+        view_details_action.triggered.connect(self.view_details)
+
+        # Show the context menu
+        context_menu.exec_(self.mapToGlobal(event.pos()))
+
+    def compare_files(self):
+        # Implement file comparison here
+        pass
+
+    def view_details(self):
+        # Implement view details here
+        pass
 
     def file_search(self):
         # Get the search term from the search bar
