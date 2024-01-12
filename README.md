@@ -4,21 +4,19 @@ File Companion is a user-friendly desktop application that allows users to manag
 
 ## Features
 
-- Powerful file search engine with filters for name, extension, size, creation/modification dates, and content.
-- Duplicate file detection and removal with options to move, copy, or delete duplicate files.
+- Powerful file search engine with filters for name, extension, size, creation/modification dates.
 - User-friendly interface with modern design.
 - Added a dedicated panel for file search with a search bar and list view for search results.
-- Implemented file preview in the search results.
-- Added options to select file directory manually with default as the current folder.
+- The search results are displayed in a table with each item containing file details like name, extension, size, location, creation date, and modification date.
+- Added options to select file directory manually with default as the current directory.
+- Double-clicking a file in the search results opens the file with the default application for that file type.
 
 ## How to Use
 
 1. Click the ‘Select Directory’ button to select a directory for file management.
 2. Use the search bar to enter search terms. The application will list all files in the selected directory that match the search term.
-3. The search results are displayed in a table with each item containing file details like name, extension, size, and location.
-4. Use the dedicated panel for file search to narrow down the search results based on various filters.
-5. Preview files directly in the search results.
-6. Select a different directory for file management.
+3. The search results are displayed in a table. Each row in the table represents a file and contains details like name, extension, size, location, creation date, and modification date.
+4. Double-click a file in the search results to open the file with the default application for that file type.
 
 ## Built With
 
